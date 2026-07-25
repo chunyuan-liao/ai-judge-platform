@@ -31,8 +31,7 @@ export async function POST(request: Request) {
         title: title,
         partyAId: partyAId,
         status: 'PENDING',
-        poolA: 0,
-        poolB: 0,
+
       },
     });
 
