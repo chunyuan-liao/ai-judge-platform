@@ -1,0 +1,103 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. 用戶模型 (User)
+// ==========================================
+model User {
+  id            String     @id @default(cuid())
+  username      String     @unique
+  credibility   Float      @default(1.0)     // 核心機制：信用權重
+  balance       Float      @default(1000.0)  // 平台資金餘額 (Polymarket 下注用)
+  
+  disputesAsA   Dispute[]  @relation("PartyA")
+  disputesAsB   Dispute[]  @relation("PartyB")
+  arguments     Argument[]
+  votes         Vote[]
+  bets          Bet[]
+}
+
+// ==========================================
+// 2. 決鬥/爭議模型 (Dispute)
+// ==========================================
+model Dispute {
+  id              String     @id @default(cuid())
+  title           String
+  status          String     @default("PENDING") // PENDING, ACTIVE, RESOLVED
+  
+  // 與 User 模型的關聯
+  partyAId        String
+  partyA          User       @relation("PartyA", fields: [partyAId], references: [id])
+  partyBId        String?
+  partyB          User?      @relation("PartyB", fields: [partyBId], references: [id])
+  
+  // Web3 區塊鏈追蹤欄位 (取代原本的 poolA, poolB)
+  contractAddress String?
+  txHash          String?
+  
+  // 與其他資料表的關聯 (把剛剛報錯缺少的補回來)
+  arguments       Argument[]
+  votes           Vote[]
+  bets            Bet[]
+  
+  createdAt       DateTime   @default(now())
+}
+
+// ==========================================
+// 3. 論點/證據模型 (Argument)
+// ==========================================
+model Argument {
+  id          String   @id @default(cuid())
+  content     String   // 發言內容
+  evidenceUrl String?  // 證據連結
+  turnNumber  Int      // 回合數
+  
+  disputeId   String
+  dispute     Dispute  @relation(fields: [disputeId], references: [id])
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  
+  createdAt   DateTime @default(now())
+}
+
+// ==========================================
+// 4. 投票模型 (Vote)
+// ==========================================
+model Vote {
+  id          String   @id @default(cuid())
+  choice      String   // "A" 或 "B"
+  weight      Float    // 紀錄投票當下的信用權重
+  
+  disputeId   String
+  dispute     Dispute  @relation(fields: [disputeId], references: [id])
+  voterId     String
+  voter       User     @relation(fields: [voterId], references: [id])
+  
+  createdAt   DateTime @default(now())
+
+  @@unique([disputeId, voterId])
+}
+
+// ==========================================
+// 5. 下注模型 (Bet)
+// ==========================================
+model Bet {
+  id          String   @id @default(cuid())
+  choice      String   // "A" 或 "B"
+  amount      Float    // 下注金額
+  
+  disputeId   String
+  dispute     Dispute  @relation(fields: [disputeId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime @default(now())
+}
